@@ -191,28 +191,12 @@
 
   <h2 class="admin-only">상금 규칙</h2>
   <div class="card rules admin-only">
-    <div class="rule-row">
-      <label for="pot">총 상금</label>
-      <input type="number" id="pot" inputmode="numeric" data-key="c:pot" disabled>
-      <span class="sub">원</span>
-    </div>
-    <div class="rule-row">
-      <label for="base">참가 기본금 (총액)</label>
-      <input type="number" id="base" inputmode="numeric" data-key="c:base" disabled>
-      <span class="sub">원 · 순위와 무관하게 인원수에 비례해 나눕니다</span>
-    </div>
     <div class="rule-row" id="bonusRow">
-      <label>순위 보너스</label>
+      <label>순위별 1인당 상금</label>
     </div>
-    <div id="ruleChip"></div>
-    <details>
-      <summary>상금 구조 설명</summary>
-      <div class="note">
-        전원에게 참가 기본금을 주고(인원수 비례), 남은 금액을 순위 보너스로 1~4위에 차등 지급합니다.
-        인원이 3·3·3·2명으로 다르기 때문에, 기본금을 인원수에 비례해 나눠 2명 팀이 1인당 과하게 받는 것을 완화했습니다.
-        어느 팀이 몇 등을 하든 총 지급액은 항상 총 상금과 같습니다.
-      </div>
-    </details>
+    <div class="note" style="margin-top:4px">
+      팀 상금 = 순위별 1인당 상금 × 팀 인원. 팀원 모두가 같은 금액을 받으므로 인원이 다른 팀끼리도 1인당 금액은 순위로만 정해집니다.
+    </div>
   </div>
 
   <div class="bar">
@@ -255,7 +239,7 @@ const SHOOT = [
   { k: "pistol", label: "권총" }
 ];
 const FIELDS = ["archery", ...SHOOT.map(x => x.k)];
-const DEFAULT_RULES = { pot: 350000, base: 110000, bonus: [100000, 70000, 45000, 25000] };
+const DEFAULT_RULES = { perHead: [50000, 40000, 30000, 20000] };
 
 const $ = id => document.getElementById(id);
 const num = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
@@ -319,12 +303,9 @@ function withPending(m) {
 }
 
 function viewRules() {
-  const r = rules || DEFAULT_RULES;
-  const out = { pot: r.pot, base: r.base, bonus: [...(r.bonus || DEFAULT_RULES.bonus)] };
-  if (pending.has("c:pot")) out.pot = pending.get("c:pot");
-  if (pending.has("c:base")) out.base = pending.get("c:base");
-  out.bonus = out.bonus.map((b, i) => pending.has("c:bonus:" + i) ? pending.get("c:bonus:" + i) : b);
-  return out;
+  const src = Array.isArray(rules?.perHead) ? rules.perHead : DEFAULT_RULES.perHead;
+  const perHead = src.map((v, i) => pending.has("c:perHead:" + i) ? pending.get("c:perHead:" + i) : v);
+  return { perHead };
 }
 
 function totals(t) {
@@ -348,12 +329,10 @@ function compute(teams, r) {
   const order = [...rows].sort((x, y) =>
     y.avg - x.avg || y.total - x.total || y.a - x.a || x.i - y.i);
   order.forEach((x, k) => { x.rank = anyScore ? k + 1 : null; });
-  const headcount = rows.reduce((n, x) => n + x.people, 0);
   rows.forEach(x => {
     if (!anyScore) { x.prize = 0; x.perHead = 0; return; }
-    const basePart = headcount ? num(r.base) * x.people / headcount : 0;
-    x.prize = basePart + num(r.bonus[x.rank - 1]);
-    x.perHead = x.people ? x.prize / x.people : 0;
+    x.perHead = num(r.perHead[x.rank - 1]);
+    x.prize = x.perHead * x.people;
   });
   return { rows, order, anyScore };
 }
@@ -413,11 +392,7 @@ function renderRank(teams, r) {
   if (!anyScore) {
     chip.innerHTML = "<span class='chip idle'>점수를 입력하면 상금이 배정됩니다</span>";
   } else {
-    const ok = Math.round(sumPrize) === Math.round(num(r.pot));
-    chip.innerHTML = "<span class='chip" + (ok ? "" : " bad") + "'>" +
-      (ok ? "지급 합계 " + won(sumPrize) + "원 — 총 상금과 정확히 일치합니다"
-          : "지급 합계 " + won(sumPrize) + "원 / 총 상금 " + won(num(r.pot)) + "원 — " +
-            won(Math.abs(sumPrize - num(r.pot))) + "원 차이") + "</span>";
+    chip.innerHTML = "<span class='chip'>현재 순위 기준 지급 합계 " + won(sumPrize) + "원</span>";
   }
 
   const total = teams.reduce((n, t) => n + t.members.length, 0);
@@ -555,30 +530,23 @@ function patchValues(teams) {
 }
 
 function renderRules(r) {
-  setIfIdle($("pot"), r.pot);
-  setIfIdle($("base"), r.base);
-  $("pot").disabled = $("base").disabled = !canEdit;
   const row = $("bonusRow");
-  if (row.querySelectorAll(".bn").length !== r.bonus.length) {
+  if (row.querySelectorAll(".bn").length !== r.perHead.length) {
     row.querySelectorAll(".bn").forEach(n => n.remove());
-    r.bonus.forEach((b, i) => {
+    r.perHead.forEach((b, i) => {
       const w = document.createElement("span");
       w.className = "bn";
       const lab = document.createElement("span");
       lab.textContent = (i + 1) + "위";
       w.appendChild(lab);
-      w.appendChild(input("number", "c:bonus:" + i, b, { inputMode: "numeric" }));
+      w.appendChild(input("number", "c:perHead:" + i, b, { inputMode: "numeric" }));
+      const unit = document.createElement("span");
+      unit.textContent = "원";
+      w.appendChild(unit);
       row.appendChild(w);
     });
   }
-  row.querySelectorAll(".bn input").forEach((el, i) => { setIfIdle(el, r.bonus[i]); el.disabled = !canEdit; });
-
-  const sum = num(r.base) + r.bonus.reduce((n, b) => n + num(b), 0);
-  const ok = Math.round(sum) === Math.round(num(r.pot));
-  $("ruleChip").innerHTML =
-    "<span class='chip" + (ok ? "" : " bad") + "'>기본금 + 보너스 = " + won(sum) + "원" +
-    (ok ? " — 총 상금과 일치" : " / 총 상금 " + won(num(r.pot)) + "원 — " +
-      won(Math.abs(sum - num(r.pot))) + "원 차이") + "</span>";
+  row.querySelectorAll(".bn input").forEach((el, i) => { setIfIdle(el, r.perHead[i]); el.disabled = !canEdit; });
 }
 
 function renderAll() {
@@ -611,8 +579,7 @@ async function flush(key) {
   try {
     if (kind === "m") await updateDoc(doc(db, "members", id), { [field]: value });
     else if (kind === "t") await updateDoc(doc(db, "teams", id), { name: value });
-    else if (kind === "c" && (id === "pot" || id === "base")) await updateDoc(doc(db, "config", "rules"), { [id]: value });
-    else if (kind === "c" && id === "bonus") await updateDoc(doc(db, "config", "rules"), { bonus: viewRules().bonus });
+    else if (kind === "c" && id === "perHead") await updateDoc(doc(db, "config", "rules"), { perHead: viewRules().perHead });
   } catch (e) { writeErr(e); }
   // 그사이 같은 칸에 새 값이 들어왔다면 그 값은 남겨 둡니다.
   if (pending.get(key) === value && !timers.has(key)) pending.delete(key);
@@ -645,7 +612,7 @@ async function seed(clearFirst) {
     ms.forEach(d => batch.delete(d.ref));
     ts.forEach(d => batch.delete(d.ref));
   }
-  batch.set(doc(db, "config", "rules"), { ...DEFAULT_RULES, bonus: [...DEFAULT_RULES.bonus] });
+  batch.set(doc(db, "config", "rules"), { perHead: [...DEFAULT_RULES.perHead] });
   [3, 3, 3, 2].forEach((n, i) => {
     const tid = "t" + (i + 1);
     batch.set(doc(db, "teams", tid), { name: FIXED[i] + "팀", order: i });
