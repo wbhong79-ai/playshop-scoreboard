@@ -18,6 +18,8 @@
   .sub { font-size: 13px; color: #6d6a65; line-height: 1.55; }
   h2 { font-size: 13px; color: #86827b; margin: 26px 0 9px; letter-spacing: 0.01em; }
   [hidden] { display: none !important; }
+  /* 상금 정보는 입력 모드(관리자)에서만 보입니다 */
+  body:not(.editing) .admin-only { display: none !important; }
 
   .card {
     background: #fff; border: 1px solid #e4e0d8; border-radius: 12px;
@@ -176,19 +178,19 @@
         <th>순위</th><th>팀</th><th>양궁</th>
         <th>저격총</th><th>소총</th><th>권총</th>
         <th class="divide">합계</th><th>인원</th><th>평균</th>
-        <th class="divide">상금</th><th>1인당</th>
+        <th class="divide admin-only">상금</th><th class="admin-only">1인당</th>
       </tr></thead>
       <tbody id="rankBody"></tbody>
       <tfoot id="rankFoot"></tfoot>
     </table>
   </div>
-  <div id="budgetChip"></div>
+  <div id="budgetChip" class="admin-only"></div>
 
   <h2>팀별 점수</h2>
   <div id="teams"><div class="card empty">점수표를 불러오는 중입니다…</div></div>
 
-  <h2>상금 규칙</h2>
-  <div class="card rules">
+  <h2 class="admin-only">상금 규칙</h2>
+  <div class="card rules admin-only">
     <div class="rule-row">
       <label for="pot">총 상금</label>
       <input type="number" id="pot" inputmode="numeric" data-key="c:pot" disabled>
@@ -384,8 +386,8 @@ function renderRank(teams, r) {
     tr.appendChild(td(fmt(x.total), "divide"));
     tr.appendChild(td(String(x.people)));
     tr.appendChild(td(fmt(x.avg), "avg"));
-    tr.appendChild(td(anyScore ? won(x.prize) + "원" : mutedDash(), "divide prize"));
-    tr.appendChild(td(anyScore ? won(x.perHead) + "원" : mutedDash()));
+    tr.appendChild(td(anyScore ? won(x.prize) + "원" : mutedDash(), "divide prize admin-only"));
+    tr.appendChild(td(anyScore ? won(x.perHead) + "원" : mutedDash(), "admin-only"));
     body.appendChild(tr);
   });
 
@@ -402,8 +404,8 @@ function renderRank(teams, r) {
     tr.appendChild(td(fmt(sumOf(x => x.total)), "divide"));
     tr.appendChild(td(String(sumOf(x => x.people))));
     tr.appendChild(td(""));
-    tr.appendChild(td(won(sumPrize) + "원", "divide prize"));
-    tr.appendChild(td(""));
+    tr.appendChild(td(won(sumPrize) + "원", "divide prize admin-only"));
+    tr.appendChild(td("", "admin-only"));
     foot.appendChild(tr);
   }
 
@@ -704,6 +706,7 @@ if (db) {
 // ---------- 로그인 ----------
 function setMode(edit) {
   canEdit = edit;
+  document.body.classList.toggle("editing", edit);
   $("mode").textContent = edit ? "입력 모드" : "보기 전용";
   $("mode").classList.toggle("edit", edit);
   $("openLogin").hidden = edit;
