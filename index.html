@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>플레이샵 양궁·사격 점수표</title>
+<style>
+  :root { color-scheme: light }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px 16px 60px;
+    background: #f6f5f2; color: #1c1b19;
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: -0.02em; }
+  .sub { font-size: 13px; color: #6d6a65; line-height: 1.55; }
+  h2 { font-size: 13px; color: #86827b; margin: 26px 0 9px; letter-spacing: 0.01em; }
+  [hidden] { display: none !important; }
+
+  .card {
+    background: #fff; border: 1px solid #e4e0d8; border-radius: 12px;
+    margin-bottom: 14px;
+  }
+  .board { padding: 6px 4px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  .board th, .board td {
+    padding: 9px 9px; font-size: 13.5px; text-align: right; white-space: nowrap;
+    border-bottom: 1px solid #f0ede7; font-variant-numeric: tabular-nums;
+  }
+  .board th { font-size: 11px; color: #86827b; font-weight: 600; }
+  .board th:first-child, .board td:first-child { text-align: center; width: 46px; }
+  .board th:nth-child(2), .board td:nth-child(2) { text-align: left; }
+  .board tr:last-child td { border-bottom: none; }
+  .medal { font-size: 16px; }
+  .r1 { background: #fffaf0; }
+  .r1 td { font-weight: 600; }
+  .avg, .prize { font-weight: 700; }
+  .prize { color: #8a6d1f; }
+  .muted { color: #a19d95; font-weight: 400; }
+  .divide { border-left: 1px solid #e0dad0; }
+
+  /* 상단 상태 표시줄: 보기 전용 / 입력 모드 */
+  .status {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin: 14px 0 0; padding: 10px 12px;
+    background: #fff; border: 1px solid #e4e0d8; border-radius: 10px; font-size: 13px;
+  }
+  .mode { font-weight: 700; }
+  .mode.edit { color: #2f6b3a; }
+  .live { color: #8b8780; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .live::before {
+    content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: #c7c2b9; margin-right: 6px; vertical-align: 1px;
+  }
+  .live.on::before { background: #3f9a52; }
+  .status .spacer { flex: 1; }
+  .login { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .login input { width: 150px; }
+  .err { color: #9b2c1f; font-size: 12.5px; }
+
+  .team { padding: 14px 16px 10px; }
+  .team-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .team-name {
+    font: inherit; font-size: 16px; font-weight: 700; border: none; background: transparent;
+    border-bottom: 1.5px dashed #ddd8d0; padding: 2px 2px 3px; width: 140px; color: #1c1b19;
+  }
+  .team-name:focus { outline: none; border-bottom-color: #b08d57; }
+  .team-name:disabled { border-bottom-color: transparent; }
+  .team-stat { font-size: 12.5px; color: #6d6a65; margin-left: auto; font-variant-numeric: tabular-nums; }
+  .team-stat b { color: #1c1b19; font-size: 14px; }
+
+  .grid { width: 100%; table-layout: fixed; }
+  .grid col.c-name { width: auto; }
+  .grid col.c-score { width: 15%; }
+  .grid col.c-sum { width: 15%; }
+  .grid col.c-del { width: 30px; }
+  .grid th { font-size: 11px; color: #86827b; font-weight: 600; padding: 0 4px 5px; text-align: center; white-space: nowrap; }
+  .grid th:first-child { text-align: left; padding-left: 2px; }
+  .grid td { padding: 3px 3px; }
+  .grid td:first-child { padding-left: 0; }
+  input[type=text], input[type=number], input[type=password] {
+    font: inherit; font-size: 14px; width: 100%; padding: 8px 9px;
+    border: 1px solid #ddd8d0; border-radius: 7px; background: #fffdf5; color: #1c1b19;
+  }
+  input[type=number] { text-align: center; font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
+  input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  input:focus { outline: none; border-color: #b08d57; background: #fff; }
+  input.fixed { background: #f4efe4; border-color: #e0d3b8; font-weight: 600; }
+  input:disabled { background: transparent; border-color: #efebe4; color: #1c1b19; opacity: 1; -webkit-text-fill-color: #1c1b19; }
+  .sum { text-align: center; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .rm { border: none; background: transparent; color: #c7c2b9; padding: 4px 6px; font-size: 15px; line-height: 1; cursor: pointer; }
+  .rm:hover { color: #9b2c1f; background: transparent; }
+  .add { font-size: 12.5px; padding: 5px 10px; margin: 4px 0 2px; color: #6d6a65; }
+
+  .rules { padding: 14px 16px; }
+  .rule-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13.5px; flex-wrap: wrap; }
+  .rule-row label { color: #55524c; min-width: 128px; }
+  .rule-row input { width: 112px; }
+  .bn { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: #55524c; }
+  .bn input { width: 96px; }
+  .chip {
+    display: inline-block; font-size: 12.5px; padding: 6px 11px; border-radius: 999px;
+    background: #f0f6ef; color: #2f6b3a; border: 1px solid #cfe3cd;
+  }
+  .chip.bad { background: #fdf1ef; color: #9b2c1f; border-color: #eccec8; }
+  .chip.idle { background: #f4f3f0; color: #6d6a65; border-color: #e4e0d8; }
+
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; margin: 20px 0 0; }
+  button {
+    font: inherit; font-size: 13px; padding: 7px 12px; border-radius: 7px;
+    border: 1px solid #d6d2cb; background: #fff; color: #322f2a; cursor: pointer;
+  }
+  button:hover { background: #efece6; }
+  button:disabled { opacity: .5; cursor: default; }
+  button.primary { background: #322f2a; color: #fff; border-color: #322f2a; }
+  button.primary:hover { background: #4a463f; }
+  button.danger { color: #9b2c1f; border-color: #e3c4bd; }
+  .note { font-size: 12px; color: #8b8780; margin-top: 16px; line-height: 1.65; }
+  .warn { color: #9b2c1f; }
+  .banner {
+    margin: 14px 0 0; padding: 12px 14px; border-radius: 10px; font-size: 13px; line-height: 1.6;
+    background: #fdf1ef; color: #9b2c1f; border: 1px solid #eccec8;
+  }
+  .empty { padding: 22px 16px; text-align: center; color: #8b8780; font-size: 13px; }
+  .toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+    background: #322f2a; color: #fff; font-size: 13px; padding: 9px 14px; border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.15); max-width: calc(100% - 32px);
+  }
+  details { margin-top: 10px; }
+  summary { font-size: 12.5px; color: #6d6a65; cursor: pointer; }
+  @media (max-width: 620px) {
+    .grid th:first-child, .grid td:first-child { min-width: 68px; }
+    .grid input[type=text] { font-size: 13px; padding: 8px 6px; }
+    .grid input[type=number] { font-size: 13.5px; padding: 8px 3px; }
+    .board th, .board td { padding: 7px 5px; font-size: 12px; }
+    .board th:first-child, .board td:first-child { width: 38px; }
+    .login input { width: 130px; }
+  }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .bar, .add, .rm, details, .status, .toast { display: none !important; }
+    .card { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>플레이샵 양궁 · 사격 점수표</h1>
+  <div class="sub">점수는 실시간으로 모든 사람에게 공유됩니다. 순위 기준은 <b>팀 평균 점수</b>(인원수 보정)입니다.</div>
+
+  <div id="setupBanner" class="banner" hidden>
+    Firebase 설정이 아직 입력되지 않았습니다. <code>index.html</code> 상단의 <code>FIREBASE_CONFIG</code>를 채워 주세요.
+  </div>
+
+  <div class="status">
+    <span id="mode" class="mode">보기 전용</span>
+    <span id="live" class="live">연결 중…</span>
+    <span class="spacer"></span>
+    <button id="openLogin" type="button">점수 입력하기</button>
+    <form id="loginForm" class="login" hidden>
+      <input type="password" id="pw" placeholder="비밀번호" autocomplete="current-password">
+      <button type="submit" class="primary" id="loginBtn">확인</button>
+      <button type="button" id="cancelLogin">취소</button>
+      <span id="loginErr" class="err"></span>
+    </form>
+    <button id="logout" type="button" hidden>입력 종료</button>
+  </div>
+
+  <h2>최종 순위 및 상금</h2>
+  <div class="card board">
+    <table>
+      <thead><tr>
+        <th>순위</th><th>팀</th><th>양궁</th>
+        <th>저격총</th><th>소총</th><th>권총</th>
+        <th class="divide">합계</th><th>인원</th><th>평균</th>
+        <th class="divide">상금</th><th>1인당</th>
+      </tr></thead>
+      <tbody id="rankBody"></tbody>
+      <tfoot id="rankFoot"></tfoot>
+    </table>
+  </div>
+  <div id="budgetChip"></div>
+
+  <h2>팀별 점수</h2>
+  <div id="teams"><div class="card empty">점수표를 불러오는 중입니다…</div></div>
+
+  <h2>상금 규칙</h2>
+  <div class="card rules">
+    <div class="rule-row">
+      <label for="pot">총 상금</label>
+      <input type="number" id="pot" inputmode="numeric" data-key="c:pot" disabled>
+      <span class="sub">원</span>
+    </div>
+    <div class="rule-row">
+      <label for="base">참가 기본금 (총액)</label>
+      <input type="number" id="base" inputmode="numeric" data-key="c:base" disabled>
+      <span class="sub">원 · 순위와 무관하게 인원수에 비례해 나눕니다</span>
+    </div>
+    <div class="rule-row" id="bonusRow">
+      <label>순위 보너스</label>
+    </div>
+    <div id="ruleChip"></div>
+    <details>
+      <summary>상금 구조 설명</summary>
+      <div class="note">
+        전원에게 참가 기본금을 주고(인원수 비례), 남은 금액을 순위 보너스로 1~4위에 차등 지급합니다.
+        인원이 3·3·3·2명으로 다르기 때문에, 기본금을 인원수에 비례해 나눠 2명 팀이 1인당 과하게 받는 것을 완화했습니다.
+        어느 팀이 몇 등을 하든 총 지급액은 항상 총 상금과 같습니다.
+      </div>
+    </details>
+  </div>
+
+  <div class="bar">
+    <button id="reset" class="danger" hidden>전체 초기화</button>
+    <button id="print">인쇄 / PDF 저장</button>
+  </div>
+
+  <div class="note">
+    누구나 이 페이지에서 점수를 실시간으로 볼 수 있고, 비밀번호를 아는 사람만 점수를 입력할 수 있습니다.<br>
+    점수 계산: 양궁·저격총·소총·권총 네 종목을 모두 더한 값이 개인 합계이고, 팀 합계를 인원수로 나눈 평균으로 순위를 정합니다.<br>
+    동점 처리: 평균이 같으면 합계, 그다음 양궁 점수가 높은 팀이 우선입니다. 공동 순위 없이 항상 1~4위가 하나씩 정해집니다.<br>
+    <span id="countNote"></span>
+  </div>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, doc, onSnapshot, updateDoc, addDoc, deleteDoc, writeBatch, getDocs
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+// Firebase 콘솔 > 프로젝트 설정 > 내 앱(웹)에서 복사한 값으로 바꾸세요.
+const FIREBASE_CONFIG = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT",
+  appId: "YOUR_APP_ID"
+};
+// 점수 입력용 공용 계정. 비밀번호는 Firebase 콘솔에서 이 계정에 지정합니다(페이지에는 들어가지 않음).
+const EDITOR_EMAIL = "playshop-scorer@example.com";
+
+const FIXED = ["줄리", "주디", "루크", "댄"];
+const SHOOT = [
+  { k: "sniper", label: "저격총" },
+  { k: "rifle",  label: "소총" },
+  { k: "pistol", label: "권총" }
+];
+const FIELDS = ["archery", ...SHOOT.map(x => x.k)];
+const DEFAULT_RULES = { pot: 350000, base: 110000, bonus: [100000, 70000, 45000, 25000] };
+
+const $ = id => document.getElementById(id);
+const num = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
+const fmt = n => Number.isInteger(n) ? String(n) : n.toFixed(1);
+const won = n => Math.round(n).toLocaleString("ko-KR");
+const memShoot = m => SHOOT.reduce((n, x) => n + num(m[x.k]), 0);
+const memTotal = m => num(m.archery) + memShoot(m);
+const memHasAny = m => FIELDS.some(f => m[f] !== "" && m[f] != null);
+
+// ---------- 상태 ----------
+let rules = null;              // config/rules
+const teamDocs = new Map();    // teams/{id}  -> {name, order}
+const memberDocs = new Map();  // members/{id} -> {team, order, name, fixed, archery, ...}
+const loaded = { rules: false, teams: false, members: false };
+let canEdit = false;
+let initStarted = false;
+
+// 입력 중이라 아직 저장되지 않은 값. 원격 스냅샷이 와도 이 값이 우선합니다.
+const pending = new Map();     // data-key -> value
+const timers = new Map();
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { t.hidden = true; }, 3200);
+}
+
+const configured = !String(FIREBASE_CONFIG.apiKey).startsWith("YOUR_");
+if (!configured) {
+  $("setupBanner").hidden = false;
+  $("live").textContent = "연결 안 됨";
+  $("openLogin").disabled = true;
+}
+
+const app = configured ? initializeApp(FIREBASE_CONFIG) : null;
+const db = app ? getFirestore(app) : null;
+const auth = app ? getAuth(app) : null;
+
+// ---------- 화면용 데이터 ----------
+function viewTeams() {
+  const list = [...teamDocs.entries()]
+    .map(([id, t]) => ({ id, name: t.name ?? "", order: t.order ?? 0, members: [] }))
+    .sort((a, b) => a.order - b.order);
+  const byId = new Map(list.map(t => [t.id, t]));
+  [...memberDocs.entries()]
+    .map(([id, m]) => withPending({ id, ...m }))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .forEach(m => { const t = byId.get(m.team); if (t) t.members.push(m); });
+  list.forEach(t => { const p = pending.get("t:" + t.id + ":name"); if (p !== undefined) t.name = p; });
+  return list;
+}
+
+function withPending(m) {
+  ["name", ...FIELDS].forEach(f => {
+    const p = pending.get("m:" + m.id + ":" + f);
+    if (p !== undefined) m[f] = p;
+  });
+  FIELDS.forEach(f => { if (m[f] == null) m[f] = ""; });
+  return m;
+}
+
+function viewRules() {
+  const r = rules || DEFAULT_RULES;
+  const out = { pot: r.pot, base: r.base, bonus: [...(r.bonus || DEFAULT_RULES.bonus)] };
+  if (pending.has("c:pot")) out.pot = pending.get("c:pot");
+  if (pending.has("c:base")) out.base = pending.get("c:base");
+  out.bonus = out.bonus.map((b, i) => pending.has("c:bonus:" + i) ? pending.get("c:bonus:" + i) : b);
+  return out;
+}
+
+function totals(t) {
+  let a = 0, s = 0, scored = 0;
+  const sh = {};
+  SHOOT.forEach(x => { sh[x.k] = 0; });
+  t.members.forEach(m => {
+    a += num(m.archery);
+    SHOOT.forEach(x => { sh[x.k] += num(m[x.k]); });
+    s += memShoot(m);
+    if (memHasAny(m)) scored++;
+  });
+  const people = t.members.length;
+  const total = a + s;
+  return { a, s, sh, total, people, scored, avg: people ? total / people : 0 };
+}
+
+function compute(teams, r) {
+  const rows = teams.map((t, i) => ({ t, i, ...totals(t) }));
+  const anyScore = rows.some(x => x.scored > 0);
+  const order = [...rows].sort((x, y) =>
+    y.avg - x.avg || y.total - x.total || y.a - x.a || x.i - y.i);
+  order.forEach((x, k) => { x.rank = anyScore ? k + 1 : null; });
+  const headcount = rows.reduce((n, x) => n + x.people, 0);
+  rows.forEach(x => {
+    if (!anyScore) { x.prize = 0; x.perHead = 0; return; }
+    const basePart = headcount ? num(r.base) * x.people / headcount : 0;
+    x.prize = basePart + num(r.bonus[x.rank - 1]);
+    x.perHead = x.people ? x.prize / x.people : 0;
+  });
+  return { rows, order, anyScore };
+}
+
+// ---------- 렌더링 ----------
+function td(text, cls) {
+  const el = document.createElement("td");
+  if (cls) el.className = cls;
+  if (text instanceof Node) el.appendChild(text); else el.textContent = text;
+  return el;
+}
+function mutedDash() { const s = document.createElement("span"); s.className = "muted"; s.textContent = "–"; return s; }
+
+function renderRank(teams, r) {
+  const { order, anyScore } = compute(teams, r);
+  const body = $("rankBody");
+  body.textContent = "";
+  order.forEach(x => {
+    const tr = document.createElement("tr");
+    if (anyScore && x.rank === 1) tr.className = "r1";
+    let rankCell;
+    if (!anyScore) rankCell = mutedDash();
+    else if (x.rank <= 3) { rankCell = document.createElement("span"); rankCell.className = "medal"; rankCell.textContent = ["🥇", "🥈", "🥉"][x.rank - 1]; }
+    else rankCell = x.rank + "위";
+    tr.appendChild(td(rankCell));
+    if (x.t.name) tr.appendChild(td(x.t.name));
+    else { const s = document.createElement("span"); s.className = "muted"; s.textContent = "이름 없음"; tr.appendChild(td(s)); }
+    tr.appendChild(td(fmt(x.a)));
+    SHOOT.forEach(s => tr.appendChild(td(fmt(x.sh[s.k]))));
+    tr.appendChild(td(fmt(x.total), "divide"));
+    tr.appendChild(td(String(x.people)));
+    tr.appendChild(td(fmt(x.avg), "avg"));
+    tr.appendChild(td(anyScore ? won(x.prize) + "원" : mutedDash(), "divide prize"));
+    tr.appendChild(td(anyScore ? won(x.perHead) + "원" : mutedDash()));
+    body.appendChild(tr);
+  });
+
+  const foot = $("rankFoot");
+  foot.textContent = "";
+  const sumPrize = order.reduce((n, x) => n + x.prize, 0);
+  if (anyScore) {
+    const sumOf = f => order.reduce((n, x) => n + f(x), 0);
+    const tr = document.createElement("tr");
+    tr.appendChild(td(""));
+    const label = td("합계"); label.style.fontWeight = "700"; tr.appendChild(label);
+    tr.appendChild(td(fmt(sumOf(x => x.a))));
+    SHOOT.forEach(s => tr.appendChild(td(fmt(sumOf(x => x.sh[s.k])))));
+    tr.appendChild(td(fmt(sumOf(x => x.total)), "divide"));
+    tr.appendChild(td(String(sumOf(x => x.people))));
+    tr.appendChild(td(""));
+    tr.appendChild(td(won(sumPrize) + "원", "divide prize"));
+    tr.appendChild(td(""));
+    foot.appendChild(tr);
+  }
+
+  const chip = $("budgetChip");
+  if (!anyScore) {
+    chip.innerHTML = "<span class='chip idle'>점수를 입력하면 상금이 배정됩니다</span>";
+  } else {
+    const ok = Math.round(sumPrize) === Math.round(num(r.pot));
+    chip.innerHTML = "<span class='chip" + (ok ? "" : " bad") + "'>" +
+      (ok ? "지급 합계 " + won(sumPrize) + "원 — 총 상금과 정확히 일치합니다"
+          : "지급 합계 " + won(sumPrize) + "원 / 총 상금 " + won(num(r.pot)) + "원 — " +
+            won(Math.abs(sumPrize - num(r.pot))) + "원 차이") + "</span>";
+  }
+
+  const total = teams.reduce((n, t) => n + t.members.length, 0);
+  const note = $("countNote");
+  note.className = total === 11 ? "" : "warn";
+  note.textContent = total === 11
+    ? "현재 등록 인원 11명 (" + teams.map(t => t.members.length).join("·") + "명)"
+    : "현재 등록 인원 " + total + "명 — 계획한 11명과 다릅니다.";
+}
+
+function teamStat(tt) {
+  return tt.people + "명 · 합계 " + fmt(tt.total) + " · 평균 <b>" + fmt(tt.avg) + "</b>";
+}
+
+let lastShape = "";
+function renderTeams(teams) {
+  const host = $("teams");
+  if (!loaded.teams || !loaded.members) return;
+  if (!teams.length) {
+    host.innerHTML = "<div class='card empty'>" + (canEdit
+      ? "점수표를 준비하는 중입니다…"
+      : "아직 점수표가 만들어지지 않았습니다. 비밀번호로 입력 모드에 들어가면 기본 팀이 생성됩니다.") + "</div>";
+    lastShape = "";
+    return;
+  }
+
+  // 팀·팀원 구성이 바뀌었을 때만 다시 그리고, 값만 바뀌었으면 칸 내용만 고칩니다.
+  // 그래야 다른 사람이 입력해도 내가 입력 중인 칸의 커서가 유지됩니다.
+  const shape = canEdit + "|" + teams.map(t => t.id + ":" + t.members.map(m => m.id + (m.fixed ? "*" : "")).join(",")).join("|");
+  if (shape !== lastShape) {
+    const active = document.activeElement?.dataset?.key;
+    buildTeams(teams);
+    lastShape = shape;
+    if (active) host.querySelector("[data-key='" + CSS.escape(active) + "']")?.focus();
+  }
+  patchValues(teams);
+}
+
+function input(type, key, value, opts = {}) {
+  const el = document.createElement("input");
+  el.type = type; el.dataset.key = key; el.value = value ?? "";
+  if (opts.placeholder) el.placeholder = opts.placeholder;
+  if (opts.className) el.className = opts.className;
+  if (type === "number") el.inputMode = opts.inputMode || "decimal";
+  el.disabled = !canEdit;
+  return el;
+}
+
+function buildTeams(teams) {
+  const host = $("teams");
+  host.textContent = "";
+  teams.forEach(t => {
+    const card = document.createElement("div");
+    card.className = "card team";
+    card.dataset.team = t.id;
+
+    const head = document.createElement("div");
+    head.className = "team-head";
+    head.appendChild(input("text", "t:" + t.id + ":name", t.name, { className: "team-name", placeholder: "팀 이름" }));
+    const stat = document.createElement("div");
+    stat.className = "team-stat";
+    head.appendChild(stat);
+    card.appendChild(head);
+
+    const table = document.createElement("table");
+    table.className = "grid";
+    table.innerHTML =
+      "<colgroup><col class='c-name'>" +
+      "<col class='c-score'><col class='c-score'><col class='c-score'><col class='c-score'>" +
+      "<col class='c-sum'>" + (canEdit ? "<col class='c-del'>" : "") + "</colgroup>" +
+      "<thead><tr><th>이름</th><th>양궁</th>" +
+      SHOOT.map(x => "<th>" + x.label + "</th>").join("") +
+      "<th>개인합</th>" + (canEdit ? "<th></th>" : "") + "</tr></thead>";
+    const tb = document.createElement("tbody");
+
+    t.members.forEach(m => {
+      const tr = document.createElement("tr");
+      tr.dataset.member = m.id;
+      const c1 = document.createElement("td");
+      c1.appendChild(input("text", "m:" + m.id + ":name", m.name, { placeholder: "이름", className: m.fixed ? "fixed" : "" }));
+      tr.appendChild(c1);
+      FIELDS.forEach(f => {
+        const c = document.createElement("td");
+        c.appendChild(input("number", "m:" + m.id + ":" + f, m[f], { placeholder: "-" }));
+        tr.appendChild(c);
+      });
+      const cs = document.createElement("td");
+      cs.className = "sum";
+      tr.appendChild(cs);
+      if (canEdit) {
+        const cr = document.createElement("td");
+        const rm = document.createElement("button");
+        rm.type = "button"; rm.className = "rm"; rm.textContent = "×"; rm.title = "팀원 삭제";
+        rm.onclick = () => removeMember(m.id);
+        cr.appendChild(rm); tr.appendChild(cr);
+      }
+      tb.appendChild(tr);
+    });
+    table.appendChild(tb);
+    card.appendChild(table);
+
+    if (canEdit) {
+      const add = document.createElement("button");
+      add.type = "button"; add.className = "add"; add.textContent = "+ 팀원 추가";
+      add.onclick = () => addMember(t);
+      card.appendChild(add);
+    }
+    host.appendChild(card);
+  });
+}
+
+function setIfIdle(el, v) {
+  if (!el || document.activeElement === el) return;
+  const s = v ?? "";
+  if (el.value !== String(s)) el.value = s;
+}
+
+function patchValues(teams) {
+  const host = $("teams");
+  teams.forEach(t => {
+    const card = host.querySelector("[data-team='" + CSS.escape(t.id) + "']");
+    if (!card) return;
+    setIfIdle(card.querySelector(".team-name"), t.name);
+    card.querySelector(".team-stat").innerHTML = teamStat(totals(t));
+    t.members.forEach(m => {
+      const tr = card.querySelector("[data-member='" + CSS.escape(m.id) + "']");
+      if (!tr) return;
+      ["name", ...FIELDS].forEach(f => setIfIdle(tr.querySelector("[data-key='" + CSS.escape("m:" + m.id + ":" + f) + "']"), m[f]));
+      const cell = tr.querySelector(".sum");
+      const has = memHasAny(m);
+      cell.textContent = has ? fmt(memTotal(m)) : "–";
+      cell.classList.toggle("muted", !has);
+    });
+  });
+}
+
+function renderRules(r) {
+  setIfIdle($("pot"), r.pot);
+  setIfIdle($("base"), r.base);
+  $("pot").disabled = $("base").disabled = !canEdit;
+  const row = $("bonusRow");
+  if (row.querySelectorAll(".bn").length !== r.bonus.length) {
+    row.querySelectorAll(".bn").forEach(n => n.remove());
+    r.bonus.forEach((b, i) => {
+      const w = document.createElement("span");
+      w.className = "bn";
+      const lab = document.createElement("span");
+      lab.textContent = (i + 1) + "위";
+      w.appendChild(lab);
+      w.appendChild(input("number", "c:bonus:" + i, b, { inputMode: "numeric" }));
+      row.appendChild(w);
+    });
+  }
+  row.querySelectorAll(".bn input").forEach((el, i) => { setIfIdle(el, r.bonus[i]); el.disabled = !canEdit; });
+
+  const sum = num(r.base) + r.bonus.reduce((n, b) => n + num(b), 0);
+  const ok = Math.round(sum) === Math.round(num(r.pot));
+  $("ruleChip").innerHTML =
+    "<span class='chip" + (ok ? "" : " bad") + "'>기본금 + 보너스 = " + won(sum) + "원" +
+    (ok ? " — 총 상금과 일치" : " / 총 상금 " + won(num(r.pot)) + "원 — " +
+      won(Math.abs(sum - num(r.pot))) + "원 차이") + "</span>";
+}
+
+function renderAll() {
+  const teams = viewTeams();
+  const r = viewRules();
+  renderRank(teams, r);
+  renderTeams(teams);
+  renderRules(r);
+}
+
+// ---------- 쓰기 ----------
+function writeErr(e) {
+  console.error(e);
+  if (e?.code === "permission-denied") toast("저장 권한이 없습니다. 비밀번호로 다시 로그인하세요.");
+  else toast("저장하지 못했습니다. 인터넷 연결을 확인하세요.");
+}
+
+// 키 하나에 대한 저장을 잠시 모았다가 한 번에 보냅니다.
+function queueWrite(key, value) {
+  pending.set(key, value);
+  clearTimeout(timers.get(key));
+  timers.set(key, setTimeout(() => flush(key), 350));
+}
+
+async function flush(key) {
+  timers.delete(key);
+  if (!pending.has(key)) return;
+  const value = pending.get(key);
+  const [kind, id, field] = key.split(":");
+  try {
+    if (kind === "m") await updateDoc(doc(db, "members", id), { [field]: value });
+    else if (kind === "t") await updateDoc(doc(db, "teams", id), { name: value });
+    else if (kind === "c" && (id === "pot" || id === "base")) await updateDoc(doc(db, "config", "rules"), { [id]: value });
+    else if (kind === "c" && id === "bonus") await updateDoc(doc(db, "config", "rules"), { bonus: viewRules().bonus });
+  } catch (e) { writeErr(e); }
+  // 그사이 같은 칸에 새 값이 들어왔다면 그 값은 남겨 둡니다.
+  if (pending.get(key) === value && !timers.has(key)) pending.delete(key);
+  renderAll();
+}
+
+document.addEventListener("input", e => {
+  const key = e.target?.dataset?.key;
+  if (!key || !canEdit) return;
+  queueWrite(key, e.target.value);
+  renderAll();
+});
+
+async function addMember(t) {
+  const maxOrder = t.members.reduce((n, m) => Math.max(n, m.order ?? 0), 0);
+  const m = { team: t.id, order: maxOrder + 1, name: "", fixed: false };
+  FIELDS.forEach(f => { m[f] = ""; });
+  try { await addDoc(collection(db, "members"), m); } catch (e) { writeErr(e); }
+}
+
+async function removeMember(id) {
+  try { await deleteDoc(doc(db, "members", id)); } catch (e) { writeErr(e); }
+}
+
+// 비어 있는 데이터베이스에 기본 팀(3·3·3·2명)과 상금 규칙을 만듭니다.
+async function seed(clearFirst) {
+  const batch = writeBatch(db);
+  if (clearFirst) {
+    const [ms, ts] = await Promise.all([getDocs(collection(db, "members")), getDocs(collection(db, "teams"))]);
+    ms.forEach(d => batch.delete(d.ref));
+    ts.forEach(d => batch.delete(d.ref));
+  }
+  batch.set(doc(db, "config", "rules"), { ...DEFAULT_RULES, bonus: [...DEFAULT_RULES.bonus] });
+  [3, 3, 3, 2].forEach((n, i) => {
+    const tid = "t" + (i + 1);
+    batch.set(doc(db, "teams", tid), { name: FIXED[i] + "팀", order: i });
+    for (let j = 0; j < n; j++) {
+      const m = { team: tid, order: j, name: j === 0 ? FIXED[i] : "", fixed: j === 0 };
+      FIELDS.forEach(f => { m[f] = ""; });
+      batch.set(doc(collection(db, "members")), m);
+    }
+  });
+  await batch.commit();
+}
+
+function maybeSeed() {
+  if (!canEdit || initStarted) return;
+  if (!loaded.rules || !loaded.teams || !loaded.members) return;
+  if (rules || teamDocs.size) return;
+  initStarted = true;
+  seed(false).catch(e => { initStarted = false; writeErr(e); });
+}
+
+$("reset").onclick = async () => {
+  if (!confirm("모든 이름과 점수를 지우고 처음 상태로 돌아갑니다. 모든 사람의 화면에서 지워집니다. 계속할까요?")) return;
+  pending.clear();
+  try { await seed(true); toast("초기화했습니다."); } catch (e) { writeErr(e); }
+};
+$("print").onclick = () => window.print();
+
+// ---------- 실시간 구독 ----------
+function markLive() {
+  const now = new Date();
+  const live = $("live");
+  live.classList.add("on");
+  live.textContent = "실시간 · " + now.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) + " 업데이트";
+}
+function subErr(e) {
+  console.error(e);
+  $("live").classList.remove("on");
+  $("live").textContent = "연결이 끊겼습니다. 새로고침해 주세요.";
+}
+
+if (db) {
+  onSnapshot(doc(db, "config", "rules"), snap => {
+    rules = snap.exists() ? snap.data() : null;
+    loaded.rules = true; markLive(); renderAll(); maybeSeed();
+  }, subErr);
+  onSnapshot(collection(db, "teams"), snap => {
+    teamDocs.clear();
+    snap.forEach(d => teamDocs.set(d.id, d.data()));
+    loaded.teams = true; markLive(); renderAll(); maybeSeed();
+  }, subErr);
+  onSnapshot(collection(db, "members"), snap => {
+    memberDocs.clear();
+    snap.forEach(d => memberDocs.set(d.id, d.data()));
+    loaded.members = true; markLive(); renderAll(); maybeSeed();
+  }, subErr);
+}
+
+// ---------- 로그인 ----------
+function setMode(edit) {
+  canEdit = edit;
+  $("mode").textContent = edit ? "입력 모드" : "보기 전용";
+  $("mode").classList.toggle("edit", edit);
+  $("openLogin").hidden = edit;
+  $("loginForm").hidden = true;
+  $("logout").hidden = !edit;
+  $("reset").hidden = !edit;
+  lastShape = "";
+  renderAll();
+  maybeSeed();
+}
+
+if (auth) {
+  onAuthStateChanged(auth, u => setMode(!!u && u.email === EDITOR_EMAIL));
+}
+
+$("openLogin").onclick = () => {
+  $("openLogin").hidden = true;
+  $("loginForm").hidden = false;
+  $("loginErr").textContent = "";
+  $("pw").focus();
+};
+$("cancelLogin").onclick = () => {
+  $("loginForm").hidden = true;
+  $("openLogin").hidden = false;
+  $("pw").value = "";
+};
+$("loginForm").onsubmit = async e => {
+  e.preventDefault();
+  const pw = $("pw").value;
+  if (!pw) return;
+  $("loginBtn").disabled = true;
+  $("loginErr").textContent = "";
+  try {
+    await signInWithEmailAndPassword(auth, EDITOR_EMAIL, pw);
+    $("pw").value = "";
+    toast("입력 모드로 전환했습니다.");
+  } catch (err) {
+    const c = err?.code || "";
+    $("loginErr").textContent =
+      c.includes("too-many-requests") ? "시도가 너무 많습니다. 잠시 후 다시 해 보세요."
+      : c.includes("network") ? "인터넷 연결을 확인하세요."
+      : c.includes("unauthorized-domain") ? "이 주소가 Firebase 승인 도메인에 등록되지 않았습니다."
+      : "비밀번호가 맞지 않습니다.";
+  } finally {
+    $("loginBtn").disabled = false;
+  }
+};
+$("logout").onclick = () => signOut(auth);
+
+renderAll();
+</script>
+</body>
+</html>
